@@ -21,13 +21,15 @@ use chromiumoxide::{Browser, BrowserConfig, cdp::browser_protocol::BrowserContex
 
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error:Error>> {
     println!("starting web scraper....");
-
-    /* start thing */
-    let (browser, mut handler) = Browser::launch(
+    let browser = Browser::new(
         BrowserConfig::builder()
             .with_head()
-            .build()?,
-    ).await?;
+            .build()
+            .unwrap()
+    )?;
+    Ok(())
+
+
 }
