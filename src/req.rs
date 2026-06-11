@@ -9,32 +9,24 @@ enum ApiArgs {
 
 
 #[allow(dead_code)]
-struct AotySteal {
+pub struct AotySteal {
     url: String,
     arg: ApiArgs,
 }
-impl AotySteal {
+pub impl AotySteal {
 
-
+    /*
     pub fn new(input: &str, arg: ApiArgs) -> Self {
         println!("stealing whole data..."); 
         match arg {
-            ApiArgs::User => {
-
-
-            }
-
 
 
         }
-
-        Self {
-
-
 
         }
 
     }
+    */
 
 
 
