@@ -1,18 +1,29 @@
 use chromiumoxide::browser::{Browser, BrowserConfig};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use futures::StreamExt;
 mod req;
 use req::AotySteal;
+use req::ApiArgs;
+const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
 #[derive(Parser, Clone)]
-struct Args {
+pub struct Args {
     #[arg(short, long)]
-    url: String,
+    pub url: String,
 
-    #[arg(short, long)]
-    count: usize,
+    #[arg(value_enum)]
+    pub count: ApiArgs,
+    
 }
 
+
+pub fn fmt_url(fmt: &str) -> String {       
+    let unfmt = AOTY + fmt;
+    let fmt: String = unfmt.replace(" ", "+");
+
+    fmt
+
+}
 
 #[tokio::main]
 #[allow(unused_variables)]
@@ -32,14 +43,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     /* A primative CLI before I try to deploy this as a REST API on my own website */
     let page = browser.new_page(&args.url).await?;
-    let reqwest: AotySteal
+    let reqwest: AotySteal =  AotySteal {
+            url: args.url,
+            arg: args.count,
+            fmt: fmt_url(args.url),
 
-    
+    };
+    match &reqwest.arg {
+       ApiArgs::Artist => {
+           browser.new_page(&
+           
 
-    
 
 
 
+       }
+       ApiArgs::User => {
+
+
+
+       }
+       ApiArgs::Album => {
+
+
+
+
+
+       }
+
+
+
+    }
     Ok(())
 
 
