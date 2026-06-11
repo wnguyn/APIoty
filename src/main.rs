@@ -1,19 +1,9 @@
+use chromiumoxide::browser::{Browser, BrowserConfig};
+use futures::StreamExt;
+mod req;
 
-use std::sync::Arc;
-use std::time::Duration;
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    routing::get,
-    Json, Router,
-};
-use headless_chrome::{Browser, LaunchOptions, Tab};
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tokio::net::TcpListener;
 
-use chromiumoxide::{Browser, BrowserConfig, cdp::browser_protocol::BrowserContextId};
+
 
 
 
@@ -21,14 +11,29 @@ use chromiumoxide::{Browser, BrowserConfig, cdp::browser_protocol::BrowserContex
 
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error:Error>> {
-    println!("starting web scraper....");
-    let browser = Browser::new(
-        BrowserConfig::builder()
-            .with_head()
-            .build()
-            .unwrap()
-    )?;
+#[allow(unused_variables)]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("starting scraper");
+    let (mut browser, mut handler) = Browser::launch(
+        BrowserConfig::builder().with_head().build()?).await?;
+
+    let handle = tokio::spawn(async move {
+        while let Some(h) = handler.next().await {
+            if h.is_err() {
+                break;
+            }
+        }
+    });
+
+    /* A primative CLI before I try to deploy this as a REST API on my own website */
+    let page = browser.new_page("https://en.wikipedia.org").await?;
+
+    
+
+    
+
+
+
     Ok(())
 
 
