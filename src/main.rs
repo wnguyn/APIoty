@@ -1,80 +1,118 @@
+use axum::handler;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use clap::{Parser, ValueEnum};
 use futures::StreamExt;
-mod req;
-use req::AotySteal;
-use req::ApiArgs;
+use std::sync::Arc;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
-#[derive(Parser, Clone)]
-pub struct Args {
-    #[arg(short, long)]
-    pub url: String,
+enum AlbumReq {
+    Score,
+    Genre,
+//    Label,
+    ReleaseDt,
+}
 
-    #[arg(value_enum)]
-    pub count: ApiArgs,
+// wrapper
+fn fmt_url(id: &str) -> String 
+{   
+    let var = format!("{}{}", AOTY, id);
+    var.replace(' ', "+")
+}
+
+async fn search2url(args: &strm, b: &browser) -> Option<String>
+{   
+    let url: String = fmt_url(args);
+    let page = b.new_page("about:blank");
+    page.goto(&url).await?;
+    let search_html = page.content().await?;
+
+    let html_page = Html::parse_document(search_html);
+
+    html_page                                                                                                                                                      
+       .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
+       .next()                                                                                                                                                                                                      
+       .and_then(|el| el.value().attr("href").map(String::from))
+}
+
+
+#[allow(unused)]
+async fn handle_album_req(
+    arg: AlbumReq, 
+    b: &chromiumoxide::Browser, 
+    h: &chromiumoxide::Handler,
+    url: &str
+    ) -> Result<(), Box<dyn std::error::Error>>
+{
+
     
+    let arg_str = search2url(url, b).await;
+    let mut res: String;
+    match arg_str {
+        Some(str) => {
+            res = str;
+        }
+        _ => {
+            println!("failed to get entry");
+            None(())
+        }
+    };
+
+    let page = b.new_page("about:blank").await?;
+    page.goto(
+    match &arg 
+    {
+        AlbumReq::Score => 
+        {
+            b.new_page(arg_str).await?;
+
+
+
+            
+
+        }
+        AlbumReq::Genre => 
+        {
+
+
+        }
+        AlbumReq::ReleaseDt => 
+        {
+
+
+
+
+        }
+    }
+
+    Ok(())
 }
 
 
-pub fn fmt_url(fmt: &str) -> String {       
-    let unfmt = AOTY + fmt;
-    let fmt: String = unfmt.replace(" ", "+");
 
-    fmt
-
-}
 
 #[tokio::main]
 #[allow(unused_variables)]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("starting scraper");
-    let args = Args::parse();
-    let (mut browser, mut handler) = Browser::launch(
-        BrowserConfig::builder().with_head().build()?).await?;
-
+async fn main() -> Result<(), Box<dyn std::error::Error>> 
+{
+    println!("starting chromium oxide....");
+    let (mut browser, mut handler) = Browser::launch(BrowserConfig::builder().with_head().build()?).await?;
     let handle = tokio::spawn(async move {
-        while let Some(h) = handler.next().await {
-            if h.is_err() {
+         while let Some(j) = handler.next().await {
+            if j.is_err() {
                 break;
             }
-        }
+         }
     });
 
-    /* A primative CLI before I try to deploy this as a REST API on my own website */
-    let page = browser.new_page(&args.url).await?;
-    let reqwest: AotySteal =  AotySteal {
-            url: args.url,
-            arg: args.count,
-            fmt: fmt_url(args.url),
-
-    };
-    match &reqwest.arg {
-       ApiArgs::Artist => {
-           browser.new_page(&
-           
-
-
-
-
-       }
-       ApiArgs::User => {
-
-
-
-       }
-       ApiArgs::Album => {
+    
 
 
 
 
 
-       }
-
-
-
-    }
     Ok(())
 
 
+
 }
+
