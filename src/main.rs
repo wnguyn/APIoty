@@ -1,8 +1,6 @@
-use axum::handler;
+use scraper::{Html, Selector};
 use chromiumoxide::browser::{Browser, BrowserConfig};
-use clap::{Parser, ValueEnum};
 use futures::StreamExt;
-use std::sync::Arc;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
 enum AlbumReq {
@@ -19,14 +17,14 @@ fn fmt_url(id: &str) -> String
     var.replace(' ', "+")
 }
 
-async fn search2url(args: &strm, b: &browser) -> Option<String>
+async fn search2url(args: &str, page: chromiumoxide::Page) -> Option<String>
 {   
-    let url: String = fmt_url(args);
-    let page = b.new_page("about:blank");
-    page.goto(&url).await?;
-    let search_html = page.content().await?;
 
-    let html_page = Html::parse_document(search_html);
+    let url: String = fmt_url(args);
+    page.goto(&url).await.ok()?;
+    let search_html = page.content().await.ok()?;
+
+    let html_page = Html::parse_document(&search_html);
 
     html_page                                                                                                                                                      
        .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
@@ -38,53 +36,74 @@ async fn search2url(args: &strm, b: &browser) -> Option<String>
 #[allow(unused)]
 async fn handle_album_req(
     arg: AlbumReq, 
-    b: &chromiumoxide::Browser, 
-    h: &chromiumoxide::Handler,
+    b: chromiumoxide::Page, 
     url: &str
-    ) -> Result<(), Box<dyn std::error::Error>>
+    ) -> Option<()>
 {
-
     
-    let arg_str = search2url(url, b).await;
-    let mut res: String;
-    match arg_str {
-        Some(str) => {
-            res = str;
-        }
-        _ => {
-            println!("failed to get entry");
-            None(())
-        }
-    };
+    let arg_str: String = search2url(url, b.clone()).await.unwrap();
+    b.goto(&arg_str);
+    let search_content = b.content().await.ok().unwrap();
 
-    let page = b.new_page("about:blank").await?;
-    page.goto(
-    match &arg 
+
+    let formatted_html = Html::parse_document(&search_content);
+
+    let mut res: String;
+
+
+    match arg 
     {
         AlbumReq::Score => 
         {
-            b.new_page(arg_str).await?;
-
-
-
-            
-
+             let score = {                                                                                                                                                                                                
+               let c: u32 = formatted_html
+                   .select(&Selector::parse(".albumCriticScore a").unwrap())                                                                                                                                            
+                   .next()?                                                                                                                                                                                             
+                   .inner_html()                                                                                                                                                                                        
+                   .trim()                                                                                                                                                                                              
+                   .parse()                                                                                                                                                                                             
+                   .ok()?;                                                                                                                                                                                              
+               let u: u32 = formatted_html 
+                   .select(&Selector::parse(".albumUserScore a").unwrap())                                                                                                                                              
+                   .next()?                                                                                                                                                                                             
+                   .inner_html()                                                                                                                                                                                        
+                   .trim()                                                                                                                                                                                              
+                   .parse()                                                                                                                                                                                             
+                   .ok()?;                                                                                                                                                                                              
+               (c, u) 
+            };
+            println!("{:?}", score);
+            Some(())
         }
         AlbumReq::Genre => 
         {
-
-
+             let selector = Selector::parse(".detailRow").unwrap();
+             let a_selector = Selector::parse("a").unwrap();
+             let mut detail_rows = formatted_html.select(&selector);
+             let genres: Vec<String> = detail_rows
+               .find(|row| row.inner_html().contains("/&nbsp;Genre"))
+               .map(|row| {
+                   row.select(&a_selector)
+                       .map(|a| a.inner_html().trim().to_string())
+                       .collect()
+               })?;
+             println!("{:?}", genres);
+             Some(())
         }
         AlbumReq::ReleaseDt => 
         {
-
-
-
-
+             let date: String = formatted_html
+               .select(&Selector::parse(".detailRow").unwrap())
+               .find(|row| row.inner_html().contains("/&nbsp;Release Date"))
+               .map(|row| {
+                   let html = row.inner_html();
+                   let end = html.find("/&nbsp;Release Date").unwrap();
+                   html[..end].trim().to_string()
+               })?;
+             println!("{:?}", date);
+                Some(())
         }
     }
-
-    Ok(())
 }
 
 
@@ -94,8 +113,9 @@ async fn handle_album_req(
 #[allow(unused_variables)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> 
 {
+    let input_tst: &str  = "Leaves Turn Inside You";
     println!("starting chromium oxide....");
-    let (mut browser, mut handler) = Browser::launch(BrowserConfig::builder().with_head().build()?).await?;
+    let (browser, mut handler) = Browser::launch(BrowserConfig::builder().with_head().build()?).await?;
     let handle = tokio::spawn(async move {
          while let Some(j) = handler.next().await {
             if j.is_err() {
@@ -103,6 +123,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
             }
          }
     });
+    // let var: Arc<Mutex<Browser>>= Arc::new(Mutex::new(browser));
+
+    // Page is thread safe so just clone it or whatever yeah 
+    let shr_page = browser.new_page("about::blank").await.ok();
+    handle_album_req(AlbumReq::Score, shr_page.clone().unwrap(), input_tst);
+    
+
+                                                            
+    
 
     
 

@@ -14,3 +14,4 @@ tokio = { version = "1", features = ["net", "rt-multi-thread", "macros"] }
 primp = "1"
 futures = "0.3.32"
 clap = { version = "4.6.1", features = ["derive"] }
+scraper = "0.27.0"
