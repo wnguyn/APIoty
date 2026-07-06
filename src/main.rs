@@ -1,6 +1,9 @@
 use scraper::{Html, Selector};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
+
+mod req;
+mod entry;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
 enum AlbumReq {
@@ -17,7 +20,10 @@ fn fmt_url(id: &str) -> String
     var.replace(' ', "+")
 }
 
-async fn search2url(args: &str, page: chromiumoxide::Page) -> Option<String>
+
+
+// this returns random aoty search query -> first album/whatever. 
+pub async fn search2url(args: &str, page: chromiumoxide::Page, pick_album: bool) -> Option<String>
 {   
 
     let url: String = fmt_url(args);
@@ -26,10 +32,25 @@ async fn search2url(args: &str, page: chromiumoxide::Page) -> Option<String>
 
     let html_page = Html::parse_document(&search_html);
 
-    html_page                                                                                                                                                      
-       .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
-       .next()                                                                                                                                                                                                      
-       .and_then(|el| el.value().attr("href").map(String::from))
+
+    match pick_album { // if false attempts to search artist (i'm not supporting user searchup)
+        true => {
+            let foo = html_page                                                                                                                                                      
+               .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
+               .next()                                                                                                                                                                                                      
+               .and_then(|el| el.value().attr("href").map(String::from));
+            return foo;
+        }
+        _ => { 
+            let foo = html_page                                                                                                                                                      
+               .select(&Selector::parse(".artistBlock.image a").unwrap())                                                                                                                                                   
+               .next()                                                                                                                                                                                                      
+               .and_then(|el| el.value().attr("href").map(String::from));
+            return foo;
+        }
+
+        
+    }
 }
 
 
@@ -41,7 +62,7 @@ async fn handle_album_req(
     ) -> Option<()>
 {
     
-    let arg_str: String = search2url(url, b.clone()).await.unwrap();
+    let arg_str: String = search2url(url, b.clone(), true).await.unwrap();
     b.goto(&arg_str);
     let search_content = b.content().await.ok().unwrap();
 
@@ -126,13 +147,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     // let var: Arc<Mutex<Browser>>= Arc::new(Mutex::new(browser));
 
     // Page is thread safe so just clone it or whatever yeah 
-    let shr_page = browser.new_page("about::blank").await.ok();
+    let shr_page: Page = browser.new_page("about::blank").await.ok();
     handle_album_req(AlbumReq::Score, shr_page.clone().unwrap(), input_tst);
     
 
                                                             
     
-
     
 
 
