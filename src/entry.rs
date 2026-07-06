@@ -2,7 +2,16 @@ use scraper::{Selector, Html};
 use std::time::Duration;
 
 
-pub struct AlbumData {
+
+
+pub trait PrintResp 
+{
+    fn print_resp(&self) -> String;
+}
+
+
+pub struct AlbumData 
+{
     web_data: Html,
 
     name: String,
@@ -15,19 +24,22 @@ pub struct AlbumData {
 }
 
 
-pub struct Song {
+pub struct Song 
+{
     name: String,
     duration: u32,
     artist: String,
 }
 
 
-fn sel(s: &str) -> Selector {
+fn sel(s: &str) -> Selector 
+{
     Selector::parse(s).expect("NaN")
 }
 
 
-fn parse_duration(s: &str) -> Option<u32> {
+fn parse_duration(s: &str) -> Option<u32> 
+{
    let (mins, secs) = s.split_once(':')?;
    Some(mins.parse::<u32>().ok()? * 60 + secs.parse::<u32>().ok()?)
 }
@@ -129,9 +141,56 @@ impl AlbumData {
 
 
 
-    };
+    }
 
 
 
+
+}
+
+impl PrintResp for AlbumData {
+
+    // for console before I add api on top
+    fn print_resp(&self) -> String 
+    {   
+        let mut track_str = String::new();
+        let mut tag_str = String::new();
+
+        for track in &self.tracks 
+        {
+            let name = &track.name;
+            let dur = track.duration;
+            let artist = &track.artist;
+
+
+            let string_track= format!("
+                song_name: {name} \n
+                dur: {dur} \n
+                artist: {artist} \n");
+            track_str.push_str("{string_track}");
+        }
+
+        
+        let mut genres: String;
+        for genre in &self.tags
+        {
+            let tag = format!(" {genre.tag} ");
+            genres.push_str("{tag}");
+            
+        }
+        let tag_str = format!("{ {generes }");
+
+        let name = &self.name;
+        let _var = format!(
+            "album name: {name} \n
+             artist name: {{&self.artist}} /n
+             url: {{&self.url}} \n
+             critic score: {{&self.critic_score}} \n
+             user score = {{&self.user_score}} \n
+             tracks = {track_str} \n
+             tags = {tag_str} \n
+        ");
+        _var
+    }
 
 }
