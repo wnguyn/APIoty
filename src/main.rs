@@ -2,6 +2,10 @@ use scraper::{Html, Selector};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
 
+use crate::req::{Engine, AotyReq};
+
+use std::sync::{Arc, Mutex};
+
 mod req;
 mod entry;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
@@ -21,6 +25,11 @@ fn fmt_url(id: &str) -> String
 }
 
 
+pub trait PrintResp {
+    fn print_resp(&self) -> String;
+}
+
+
 
 // this returns random aoty search query -> first album/whatever. 
 pub async fn search2url(args: &str, page: chromiumoxide::Page, pick_album: bool) -> Option<String>
@@ -34,7 +43,7 @@ pub async fn search2url(args: &str, page: chromiumoxide::Page, pick_album: bool)
 
 
     match pick_album { // if false attempts to search artist (i'm not supporting user searchup)
-        true => {
+      true => {
             let foo = html_page                                                                                                                                                      
                .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
                .next()                                                                                                                                                                                                      
@@ -144,21 +153,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
             }
          }
     });
-    // let var: Arc<Mutex<Browser>>= Arc::new(Mutex::new(browser));
 
-    // Page is thread safe so just clone it or whatever yeah 
-    let shr_page: Page = browser.new_page("about::blank").await.ok();
-    handle_album_req(AlbumReq::Score, shr_page.clone().unwrap(), input_tst);
+
+    // Page is thread safe so just clone it or whatever yeah
+    let shr_page = browser.new_page("about::blank").await.ok().unwrap();
     
+    let engine: Engine = Engine::new(
+        Arc::new(Mutex::new(browser)),
+        None,
+    ).await;
 
-                                                            
+
+    // Testing "Leaves Turn Inside you" to return data or whatever
+    let _str: String = engine.returlfromreq(AotyReq::Artist(true), input_tst).await;
+    let album_htmlpg= engine.update_page(&_str).await;
+
     
-    
-
-
-
-
-
+                                                              
     Ok(())
 
 

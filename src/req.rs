@@ -1,52 +1,81 @@
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use clap::{Parser, ValueEnum};
 use chromiumoxide::Page;
+use scraper::Html;
 use std::sync::{Arc, Mutex};
 
 
 
 
-enum AotyReq {
-    Album,
-    Artist,
+pub enum AotyReq 
+{
+    Album(bool),
+    Artist(bool),
     // Chart (do later)
 }
 
-enum Album {
+enum Album 
+{
     GetInfo,
     GetTopTags,
     Search,
 }
 
 
-struct Engine {
+pub struct Engine 
+{
     engine: Arc<Mutex<Browser>>,
     page: Page,
-    query: String,
-    req_type: AotyReq,
 }
 
-impl Engine {
+impl Engine 
+{
 
 
-    pub async fn new(brow: Arc<Mutex<Browser>>, args: &str, req: AotyReq) -> Self {
+    pub async fn new(brow: Arc<Mutex<Browser>>,  req: Option<AotyReq>) -> Self 
+    {
         let shr_page = brow.lock().unwrap().new_page("about::blank").await.unwrap();
         Self {
             engine: brow,
             page: shr_page,
-            query: format!("{args}"),
-            req_type: req,
         }
 
     }
     
-    pub async fn update_page(&self) {
-        self->page
-
-
-
-
+    #[allow(unused_variables)] // raw url or whatever
+    pub async fn update_page(&self, url: &str)  -> Html
+    {   
+        let page_ptr = self.page.clone();       
+        page_ptr.goto(url).await.ok();
+        let scraped_str = page_ptr.content().await.unwrap();
+        
+        let return_html = Html::parse_document(&scraped_str);
+        return_html
 
     }
+
+    // return url that represents the actual url for an album
+    pub async fn returlfromreq(&self, val: AotyReq, req_in: &str)  -> String
+    {
+        match &val 
+        {
+            AotyReq::Album(foo) => 
+            {
+                println!("returning url to search up an album....");
+                let page_ptr = self.page.clone();
+                let var = crate::search2url(req_in, page_ptr, *foo).await.unwrap();
+                var
+            }
+            AotyReq::Artist(foo) => 
+            {
+                println!("returning artist name for req.....");
+                let page_ptr = self.page.clone();
+                let var = crate::search2url(req_in, page_ptr, *foo).await.unwrap();
+                var
+            }
+        }
+    }
+    
+        
 
 }
