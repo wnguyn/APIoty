@@ -17,6 +17,7 @@ pub struct AlbumData
     name: String,
     artist: String,
     url: String,
+    cover_url: String,
     critic_score: u8,
     user_score: u8,
     tracks: Vec<Song>,
@@ -126,6 +127,15 @@ impl AlbumData {
             .map(|a| a.text().collect::<String>().trim().to_string())
             .collect();
 
+        // fetch cover art url 
+        //
+        let cover_url = album_html
+            .select(&sel(".albumTopBox.cover.img"))
+            .next()
+            .unwrap()
+            .text()
+            .collect::<String>();
+
         
 
         Self {
@@ -136,6 +146,7 @@ impl AlbumData {
             critic_score,
             user_score,
             tracks,
+            cover_url,
             tags,
         }
 
@@ -171,14 +182,14 @@ impl PrintResp for AlbumData {
         }
 
         
-        let mut genres: String;
+        let mut genres = String::new();
         for genre in &self.tags
         {
-            let tag = format!(" {genre.tag} ");
+            let tag = format!(" {{&genre.tag}} ");
             genres.push_str("{tag}");
             
         }
-        let tag_str = format!("{ {generes }");
+        let tag_str = format!(" {{&genres}} ");
 
         let name = &self.name;
         let _var = format!(
