@@ -1,4 +1,6 @@
 use scraper::{Html, Selector};
+use axum::{Router, routing::get};
+
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
 
@@ -137,13 +139,19 @@ async fn handle_album_req(
 }
 
 
+async fn dynamic_handler() -> Json<Value {
+    
+
+
+}
+
 
 
 #[tokio::main]
 #[allow(unused_variables)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> 
-{
-    let input_tst: &str  = "Leaves Turn Inside You";
+{       
+
     println!("starting chromium oxide....");
     let (browser, mut handler) = Browser::launch(BrowserConfig::builder().with_head().build()?).await?;
     let handle = tokio::spawn(async move {
@@ -155,6 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     });
 
 
+
     // Page is thread safe so just clone it or whatever yeah
     let shr_page = browser.new_page("about::blank").await.ok().unwrap();
     
@@ -164,10 +173,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     ).await;
 
 
-    // Testing "Leaves Turn Inside you" to return data or whatever
+    /* Testing "Leaves Turn Inside you" to return data or whatever
     let _str: String = engine.returlfromreq(AotyReq::Artist(true), input_tst).await;
-    let album_htmlpg= engine.update_page(&_str).await;
+    let var = engine.update_page(&_str).await;
+    */
 
+    let app = Router::new()
+        .route("/api/v0/:reqwest", get(dynamic_handler));
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
     
                                                               
     Ok(())
