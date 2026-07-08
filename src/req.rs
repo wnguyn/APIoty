@@ -1,7 +1,8 @@
 use chromiumoxide::browser::Browser;
 use chromiumoxide::Page;
 use scraper::Html;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
+use parking_lot::{Mutex, RwLock};
 use crate::DurationTime;
 
 
@@ -36,7 +37,7 @@ impl Engine
 
     pub async fn new(brow: Arc<Mutex<Browser>>, enum_status: Arc<RwLock<DurationTime>>) -> Self 
     {
-        let shr_page = brow.lock().unwrap().new_page("about::blank").await.unwrap();
+        let shr_page = brow.lock().new_page("about::blank").await.unwrap();
         Self 
         {
             engine: brow,
@@ -45,8 +46,6 @@ impl Engine
         }
 
     }
-    
-    #[allow(unused_variables)] // raw url or whatever
     pub async fn update_page(&self, url: &str)  -> Html
     {   
         let page_ptr = self.page.clone();       
@@ -59,25 +58,12 @@ impl Engine
     }
 
     // return url that represents the actual url for an album
-    pub async fn returlfromreq(&self, val: AotyReq, req_in: &str)  -> String
+    pub async fn returlfromreq(&self, req_in: &str)  -> String
     {
-        match &val 
-        {
-            AotyReq::Album(foo) => 
-            {
-                println!("returning url to search up an album....");
-                let page_ptr = self.page.clone();
-                let var = crate::search2url(req_in, page_ptr, *foo).await.unwrap();
-                var
-            }
-            AotyReq::Artist(foo) => 
-            {
-                println!("returning artist name for req.....");
-                let page_ptr = self.page.clone();
-                let var = crate::search2url(req_in, page_ptr, *foo).await.unwrap();
-                var
-            }
-        }
+        println!("returning url to search up an album....");
+        let page_ptr = self.page.clone();
+        let var = crate::search2url(req_in, page_ptr, true).await.unwrap();
+        var
     }
     
         

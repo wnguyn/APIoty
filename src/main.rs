@@ -3,18 +3,22 @@ use serde_json::Value;
 use serde_json::json;
 use std::time::Duration;
 use crate::entry::AlbumData;
+use crate::artistentry::{AlbumEntry, RelType};
+
 use axum::{Router, routing::get, extract::{Path, State}};
 use axum::Json;
 use axum::http::StatusCode;
 use crate::req::{Engine, AotyReq};
 use chromiumoxide::browser::{Browser, BrowserConfig};
-use chromiumoxide::Page;
+
 use futures::StreamExt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
+use parking_lot::{Mutex, RwLock};
 
 
 mod req;
 mod entry;
+mod artistentry;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
 enum AlbumReq {
@@ -142,38 +146,61 @@ async fn handle_album_req(
         }
     }
 }
-
-async fn dynamic_handler(State(state): State<Engine>, Path(slug): Path<String>)
+async fn axum_handlealbum(State(state): State<Engine>, Path(slug): Path<String>)
     -> Result<Json<AlbumData>, (StatusCode, Json<Value>)>
 {
     println!("starting engine...");
-    let status = *state.status
-        .read()
-        .unwrap();
+    let is_ready = {
+        let status = state.status.read();
+        *status == DurationTime::READY
+    };
     let input = slug.replace('+', " ");
-    if status == DurationTime::READY
-    {   
-        let mut guard = state.status.write().unwrap();
-        *guard = DurationTime::READY;
-        
-        let search_link = state.returlfromreq(AotyReq::Album, &input).await;
+    if is_ready {
+        {
+            let mut guard = state.status.write();
+            *guard = DurationTime::READY;
+        }
+        let _variant = AotyReq::Album(true);
+        let search_link = state.returlfromreq(&input).await;
         let album_html = state.update_page(&search_link).await;
-        // get struct from  html
         let api_call = AlbumData::init_html(album_html);
         Ok(Json(api_call))
-
-               
-
-    } else 
-    {   
-        Err(( 
+    } 
+    else 
+    {
+        Err((
             StatusCode::TOO_MANY_REQUESTS,
             Json(json!({"error": "cooldown bud"})),
         ))
-
     }
 }
 
+async fn axum_handleartist(State(state): State<Engine>, Path(slug): Path<String>)
+    -> Result<Json<Vec<artistentry::AlbumEntry>>, (StatusCode, Json<Value>)> {
+
+
+
+    let is_ready = {
+        let status = state.status.read();
+        *status == DurationTime::READY
+    };
+    let input = slug.replace('+', " ");
+    if is_ready {
+        {
+            let mut guard = state.status.write();
+            *guard = DurationTime::READY;
+        }
+        let search_link = state.returlfromreq(&input).await;
+        let html = state.update_page(&search_link).await;
+        let entries = artistentry::AlbumEntry::new(html);
+        Ok(Json(entries))
+    } else {
+        Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "cooldown bud"})),
+        ))
+    }
+}
 
 
 #[derive(PartialEq)]
@@ -193,17 +220,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     let cooldown_enum = Arc::new(RwLock::new(DurationTime::TIMEOUT));
     let cooldown = cooldown_enum.clone();
     
-    tokio::spawn( 
+    tokio::spawn(
         async move {
-            loop 
-            {
-                if *cooldown.read().unwrap() == DurationTime::TIMEOUT
-                {
+            loop {
+                let timed_out = {
+                    let cd = cooldown.read();
+                    *cd == DurationTime::TIMEOUT
+                };
+                if timed_out {
                     tokio::time::sleep(Duration::from_secs(120)).await;
-                    let _ = *cooldown.write().unwrap() == DurationTime::READY;
+                    {
+                        let mut cd = cooldown.write();
+                        *cd = DurationTime::READY;
+                    }
                 }
             }
-
         }
     );
 
@@ -234,12 +265,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     */
 
     let app = Router::new()
-        .route("/api/v0/:slug", get(dynamic_handler)).with_state(engine);
+        .route("/api/album/:slug", get(axum_handlealbum))
+        .route("/api/artist/:slug", get(axum_handleartist))
+        .with_state(engine);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
     axum::serve(listener, app).await.unwrap();
-    
-                                                              
+
     Ok(())
+
+
+
 
 
 

@@ -14,7 +14,7 @@ pub trait PrintResp
 }
 
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct AlbumData 
 {
  //   web_data: Html,
@@ -30,7 +30,7 @@ pub struct AlbumData
 }
 
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Song 
 {
     name: String,
