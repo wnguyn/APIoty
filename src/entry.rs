@@ -1,7 +1,11 @@
 use scraper::{Selector, Html};
 use std::time::Duration;
+use serde::Serialize;
 
-
+#[derive(Clone, Serialize)]
+pub struct Resp {
+    resp: AlbumData
+}
 
 
 pub trait PrintResp 
@@ -10,8 +14,10 @@ pub trait PrintResp
 }
 
 
+#[derive(Clone, Serialize)]
 pub struct AlbumData 
 {
+    #[serde(skip)]
     web_data: Html,
 
     name: String,
@@ -25,6 +31,7 @@ pub struct AlbumData
 }
 
 
+#[derive(Clone, Serialize)]
 pub struct Song 
 {
     name: String,

@@ -1,12 +1,15 @@
 use scraper::{Html, Selector};
-use axum::{Router, routing::get};
-
-use chromiumoxide::browser::{Browser, BrowserConfig};
-use futures::StreamExt;
-
+use serde_json::Value;
+use std::time::Duration;
+use axum::{Router, routing::get, extract::{Path, State}};
+use axum::Json;
+use axum::http::StatusCode;
 use crate::req::{Engine, AotyReq};
+use chromiumoxide::browser::{Browser, BrowserConfig};
+use chromiumoxide::Page;
+use futures::StreamExt;
+use std::sync::{Arc, Mutex, RwLock};
 
-use std::sync::{Arc, Mutex};
 
 mod req;
 mod entry;
@@ -80,7 +83,7 @@ async fn handle_album_req(
 
     let formatted_html = Html::parse_document(&search_content);
 
-    let mut res: String;
+  let mut res: String;
 
 
     match arg 
@@ -139,18 +142,43 @@ async fn handle_album_req(
 }
 
 
-async fn dynamic_handler() -> Json<Value {
-    
-
-
+async fn dynamic_handler(State(state): State<Engine>, Path(slug): Path<String>)
+    -> Result<Json<Value>, (StatusCode, Json<Value>)>
+{
+    todo!()
 }
 
+
+
+#[derive(PartialEq)]
+enum DurationTime 
+{
+    READY,
+    TIMEOUT,
+}
 
 
 #[tokio::main]
 #[allow(unused_variables)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> 
-{       
+{   
+
+    // only one owner I don't want to use HECKIN MUTEX!!
+    let cooldown: Arc<RwLock<DurationTime>> = Arc::new(RwLock::new(DurationTime::TIMEOUT));
+    
+    tokio::spawn( 
+        async move {
+            loop 
+            {
+                if *cooldown.read().unwrap() == DurationTime::TIMEOUT
+                {
+                    tokio::time::sleep(Duration::from_secs(120)).await;
+                    let _ = *cooldown.write().unwrap() == DurationTime::READY;
+                }
+            }
+
+        }
+    );
 
     println!("starting chromium oxide....");
     let (browser, mut handler) = Browser::launch(BrowserConfig::builder().with_head().build()?).await?;
@@ -179,7 +207,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     */
 
     let app = Router::new()
-        .route("/api/v0/:reqwest", get(dynamic_handler));
+        .route("/api/v0/:slug", get(dynamic_handler)).with_state(engine);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
     axum::serve(listener, app).await.unwrap();
     
@@ -189,4 +217,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
 
 
 }
-
