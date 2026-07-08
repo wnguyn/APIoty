@@ -1,6 +1,8 @@
 use scraper::{Html, Selector};
 use serde_json::Value;
+use serde_json::json;
 use std::time::Duration;
+use crate::entry::AlbumData;
 use axum::{Router, routing::get, extract::{Path, State}};
 use axum::Json;
 use axum::http::StatusCode;
@@ -141,11 +143,35 @@ async fn handle_album_req(
     }
 }
 
-
 async fn dynamic_handler(State(state): State<Engine>, Path(slug): Path<String>)
-    -> Result<Json<Value>, (StatusCode, Json<Value>)>
+    -> Result<Json<AlbumData>, (StatusCode, Json<Value>)>
 {
-    todo!()
+    println!("starting engine...");
+    let status = *state.status
+        .read()
+        .unwrap();
+    let input = slug.replace('+', " ");
+    if status == DurationTime::READY
+    {   
+        let mut guard = state.status.write().unwrap();
+        *guard = DurationTime::READY;
+        
+        let search_link = state.returlfromreq(AotyReq::Album, &input).await;
+        let album_html = state.update_page(&search_link).await;
+        // get struct from  html
+        let api_call = AlbumData::init_html(album_html);
+        Ok(Json(api_call))
+
+               
+
+    } else 
+    {   
+        Err(( 
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "cooldown bud"})),
+        ))
+
+    }
 }
 
 
@@ -164,7 +190,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
 {   
 
     // only one owner I don't want to use HECKIN MUTEX!!
-    let cooldown: Arc<RwLock<DurationTime>> = Arc::new(RwLock::new(DurationTime::TIMEOUT));
+    let cooldown_enum = Arc::new(RwLock::new(DurationTime::TIMEOUT));
+    let cooldown = cooldown_enum.clone();
     
     tokio::spawn( 
         async move {
@@ -197,7 +224,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     
     let engine: Engine = Engine::new(
         Arc::new(Mutex::new(browser)),
-        None,
+        cooldown_enum.clone()
     ).await;
 
 

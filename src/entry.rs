@@ -14,11 +14,10 @@ pub trait PrintResp
 }
 
 
-#[derive(Clone, Serialize)]
+#[derive(Serialize)]
 pub struct AlbumData 
 {
-    #[serde(skip)]
-    web_data: Html,
+ //   web_data: Html,
 
     name: String,
     artist: String,
@@ -31,7 +30,7 @@ pub struct AlbumData
 }
 
 
-#[derive(Clone, Serialize)]
+#[derive(Serialize)]
 pub struct Song 
 {
     name: String,
@@ -57,7 +56,7 @@ fn parse_duration(s: &str) -> Option<u32>
 impl AlbumData {
 
     // TODO: Maybe not use unwrap for all these....
-    pub fn init_html(&self, album_html: Html) -> Self {
+    pub fn init_html(album_html: Html) -> Self {
 
         let alb_name = album_html
             .select(&sel("h1.albumTitle"))
@@ -146,7 +145,7 @@ impl AlbumData {
         
 
         Self {
-            web_data: album_html,
+       //     web_data: album_html,
             name: alb_name,
             artist,
             url,

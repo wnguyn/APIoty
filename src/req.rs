@@ -1,7 +1,7 @@
 use chromiumoxide::browser::Browser;
 use chromiumoxide::Page;
 use scraper::Html;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use crate::DurationTime;
 
 
@@ -26,7 +26,7 @@ enum Album
 pub struct Engine 
 {
     engine: Arc<Mutex<Browser>>,
-    status: Arc<Mutex<DurationTime>>,
+    pub status: Arc<RwLock<DurationTime>>,
     page: Page,
 }
 
@@ -34,7 +34,7 @@ impl Engine
 {
 
 
-    pub async fn new(brow: Arc<Mutex<Browser>>, enum_status: Arc<Mutex<DurationTime>>) -> Self 
+    pub async fn new(brow: Arc<Mutex<Browser>>, enum_status: Arc<RwLock<DurationTime>>) -> Self 
     {
         let shr_page = brow.lock().unwrap().new_page("about::blank").await.unwrap();
         Self 
