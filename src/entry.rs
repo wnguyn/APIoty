@@ -133,8 +133,6 @@ impl AlbumData {
             .map(|a| a.text().collect::<String>().trim().to_string())
             .collect();
 
-        // fetch cover art url 
-        //
         let cover_url = album_html
             .select(&sel(".albumTopBox.cover.img"))
             .next()

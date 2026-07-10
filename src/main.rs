@@ -4,6 +4,7 @@ use serde_json::json;
 use std::time::Duration;
 use crate::entry::AlbumData;
 use crate::artistentry::{AlbumEntry, RelType};
+use crate::search::SearchAlbum;
 
 use axum::{Router, routing::get, extract::{Path, State}};
 use axum::Json;
@@ -19,6 +20,7 @@ use parking_lot::{Mutex, RwLock};
 mod req;
 mod entry;
 mod artistentry;
+mod search;
 const AOTY: &str = "https://www.albumoftheyear.org/search/?q=";
 
 enum AlbumReq {
@@ -41,9 +43,15 @@ pub trait PrintResp {
 }
 
 
+pub enum UrlWhat {
+    UrlLink,
+    PageData,
 
-// this returns random aoty search query -> first album/whatever. 
-pub async fn search2url(args: &str, page: chromiumoxide::Page, pick_album: bool) -> Option<String>
+}
+
+
+
+pub async fn search2url(args: &str, page: chromiumoxide::Page, pick: UrlWhat) -> Option<String>
 {   
 
     let url: String = fmt_url(args);
@@ -53,99 +61,32 @@ pub async fn search2url(args: &str, page: chromiumoxide::Page, pick_album: bool)
     let html_page = Html::parse_document(&search_html);
 
 
-    match pick_album { // if false attempts to search artist (i'm not supporting user searchup)
-      true => {
+    match pick {
+      UrlWhat::UrlLink => {
             let foo = html_page                                                                                                                                                      
                .select(&Selector::parse(".albumBlock .image a").unwrap())                                                                                                                                                   
                .next()                                                                                                                                                                                                      
                .and_then(|el| el.value().attr("href").map(String::from));
             return foo;
         }
-        _ => { 
+
+      UrlWhat::PageData =>
+     {
+            return Some(search_html);
+
+            /*
             let foo = html_page                                                                                                                                                      
                .select(&Selector::parse(".artistBlock.image a").unwrap())                                                                                                                                                   
                .next()                                                                                                                                                                                                      
                .and_then(|el| el.value().attr("href").map(String::from));
             return foo;
+            */
         }
 
         
     }
 }
 
-
-#[allow(unused)]
-async fn handle_album_req(
-    arg: AlbumReq, 
-    b: chromiumoxide::Page, 
-    url: &str
-    ) -> Option<()>
-{
-    
-    let arg_str: String = search2url(url, b.clone(), true).await.unwrap();
-    b.goto(&arg_str);
-    let search_content = b.content().await.ok().unwrap();
-
-
-    let formatted_html = Html::parse_document(&search_content);
-
-  let mut res: String;
-
-
-    match arg 
-    {
-        AlbumReq::Score => 
-        {
-             let score = {                                                                                                                                                                                                
-               let c: u32 = formatted_html
-                   .select(&Selector::parse(".albumCriticScore a").unwrap())                                                                                                                                            
-                   .next()?                                                                                                                                                                                             
-                   .inner_html()                                                                                                                                                                                        
-                   .trim()                                                                                                                                                                                              
-                   .parse()                                                                                                                                                                                             
-                   .ok()?;                                                                                                                                                                                              
-               let u: u32 = formatted_html 
-                   .select(&Selector::parse(".albumUserScore a").unwrap())                                                                                                                                              
-                   .next()?                                                                                                                                                                                             
-                   .inner_html()                                                                                                                                                                                        
-                   .trim()                                                                                                                                                                                              
-                   .parse()                                                                                                                                                                                             
-                   .ok()?;                                                                                                                                                                                              
-               (c, u) 
-            };
-            println!("{:?}", score);
-            Some(())
-        }
-        AlbumReq::Genre => 
-        {
-             let selector = Selector::parse(".detailRow").unwrap();
-             let a_selector = Selector::parse("a").unwrap();
-             let mut detail_rows = formatted_html.select(&selector);
-             let genres: Vec<String> = detail_rows
-               .find(|row| row.inner_html().contains("/&nbsp;Genre"))
-               .map(|row| {
-                   row.select(&a_selector)
-                       .map(|a| a.inner_html().trim().to_string())
-                       .collect()
-               })?;
-             println!("{:?}", genres);
-             Some(())
-        }
-        AlbumReq::ReleaseDt => 
-        {
-             let date: String = formatted_html
-               .select(&Selector::parse(".detailRow").unwrap())
-               .find(|row| row.inner_html().contains("/&nbsp;Release Date"))
-               .map(|row| {
-                   let html = row.inner_html();
-                   let end = html.find("/&nbsp;Release Date").unwrap();
-                   html[..end].trim().to_string()
-               })?;
-             println!("{:?}", date);
-                Some(())
-        }
-    }
-}
 async fn axum_handlealbum(State(state): State<Engine>, Path(slug): Path<String>)
     -> Result<Json<AlbumData>, (StatusCode, Json<Value>)>
 {
@@ -186,14 +127,34 @@ async fn axum_handleartist(State(state): State<Engine>, Path(slug): Path<String>
     };
     let input = slug.replace('+', " ");
     if is_ready {
-        {
-            let mut guard = state.status.write();
-            *guard = DurationTime::READY;
-        }
         let search_link = state.returlfromreq(&input).await;
         let html = state.update_page(&search_link).await;
         let entries = artistentry::AlbumEntry::new(html);
         Ok(Json(entries))
+    } else {
+        Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "cooldown bud"})),
+        ))
+    }
+}
+
+async fn axum_list(State(state): State<Engine>, Path(query): Path<String>)
+    -> Result<Json<Value>, (StatusCode, Json<Value>)>
+{
+    let is_ready = {
+        let status = state.status.read();
+        *status == DurationTime::READY
+    };
+    if is_ready {
+        {
+            let mut guard = state.status.write();
+            *guard = DurationTime::READY;
+        }
+        let url = format!("{}{}", AOTY, query);
+        let html = state.update_page(&url).await;
+        let (albums, artists) = crate::search::parse_search(&html);
+        Ok(Json(json!({ "albums": albums, "artists": artists })))
     } else {
         Err((
             StatusCode::TOO_MANY_REQUESTS,
@@ -267,6 +228,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
     let app = Router::new()
         .route("/api/album/:slug", get(axum_handlealbum))
         .route("/api/artist/:slug", get(axum_handleartist))
+        .route("/api/list/:query", get(axum_list))
         .with_state(engine);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -275,7 +237,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>
 
 
 
-
-
-
 }
+
+

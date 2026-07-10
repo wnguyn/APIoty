@@ -3,9 +3,7 @@ use chromiumoxide::Page;
 use scraper::Html;
 use std::sync::Arc;
 use parking_lot::{Mutex, RwLock};
-use crate::DurationTime;
-
-
+use crate::{DurationTime, UrlWhat};
 
 
 pub enum AotyReq 
@@ -56,14 +54,30 @@ impl Engine
         return_html
 
     }
+    
 
-    // return url that represents the actual url for an album
+    // ret ARTIST URL from generic query
+    
     pub async fn returlfromreq(&self, req_in: &str)  -> String
     {
         println!("returning url to search up an album....");
         let page_ptr = self.page.clone();
-        let var = crate::search2url(req_in, page_ptr, true).await.unwrap();
+        let var = crate::search2url(req_in, page_ptr, UrlWhat::UrlLink).await.unwrap();
         var
+    }
+
+
+    pub async fn html_req_page(&self, req_in: &str) -> Html 
+    {
+        let page_ptr = self.page.clone();
+
+        let page = crate::search2url(req_in, page_ptr, UrlWhat::PageData).await.unwrap();
+        let html_parse = Html::parse_document(&page);
+        return html_parse;
+        
+
+
+
     }
     
         
